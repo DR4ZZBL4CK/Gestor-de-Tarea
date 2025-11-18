@@ -4,13 +4,45 @@ namespace App\Http\Controllers;
 
 use App\Models\Tarea;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class TareaController extends Controller
 {
    
-    public function index()
+    public function index(Request $request)
     {
-        $tareas = Tarea::latest()->get();
+       $query = Tarea::latest();
+
+        // ✅ Filtro por Estado
+        if ($request->filled('estado') && $request->estado !== 'todos') {
+            $query->where('estado', $request->estado);
+        }
+
+        // ✅ Filtro por Prioridad
+        if ($request->filled('prioridad') && $request->prioridad !== 'todas') {
+            $query->where('prioridad', $request->prioridad);
+        }
+
+        // ✅ Filtro por Vencimiento
+        if ($request->filled('vencimiento')) {
+            $hoy = Carbon::now()->startOfDay();
+            $finSemana = Carbon::now()->addDays(7)->endOfDay();
+
+            switch ($request->vencimiento) {
+                case 'vencidas':
+                    $query->where('fecha_vencimiento', '<', $hoy)
+                          ->where('estado', '!=', 'completada');
+                    break;
+                case 'hoy':
+                    $query->whereDate('fecha_vencimiento', $hoy);
+                    break;
+                case 'semana':
+                    $query->whereBetween('fecha_vencimiento', [$hoy, $finSemana]);
+                    break;
+            }
+        }
+
+        $tareas = $query->get();
         
         return view('tareas.index', compact('tareas'));
     }
